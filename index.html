@@ -4,19 +4,12 @@
     <meta charset="utf-8">
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
     <title>Unity Web Player | Memory</title>
-    
-    <!-- 1. РАЗРЕШАЕМ EVAL (Убираем "кучу ошибок" в консоли) -->
-    <meta http-equiv="Content-Security-Policy" content="default-src * 'self' 'unsafe-inline' 'unsafe-eval' data: gap:; script-src * 'self' 'unsafe-inline' 'unsafe-eval';">
-    
-    <!-- 2. ПОДКЛЮЧАЕМ TELEGRAM SDK -->
-    <script src="https://telegram.org"></script>
-
     <link rel="shortcut icon" href="TemplateData/favicon.ico">
     <link rel="stylesheet" href="TemplateData/style.css">
   </head>
-  <body style="background: #000; margin: 0; padding: 0; overflow: hidden;">
-    <div id="unity-container" class="unity-desktop" style="width: 100%; height: 100%;">
-      <canvas id="unity-canvas" tabindex="-1" style="width: 100%; height: 100%;"></canvas>
+  <body>
+    <div id="unity-container" class="unity-desktop">
+      <canvas id="unity-canvas" width=1080 height=1920 tabindex="-1"></canvas>
       <div id="unity-loading-bar">
         <div id="unity-logo"></div>
         <div id="unity-progress-bar-empty">
@@ -24,29 +17,30 @@
         </div>
       </div>
       <div id="unity-warning"> </div>
+      <div id="unity-footer">
+        <div id="unity-logo-title-footer"></div>
+        <div id="unity-fullscreen-button"></div>
+        <div id="unity-build-title">Memory</div>
+      </div>
     </div>
-
     <script>
-      // 3. ИНИЦИАЛИЗАЦИЯ TELEGRAM
-      if (window.Telegram && window.Telegram.WebApp) {
-          window.Telegram.WebApp.ready();
-          window.Telegram.WebApp.expand(); // Развернуть на весь экран
-      }
-
-      var container = document.querySelector("#unity-container");
       var canvas = document.querySelector("#unity-canvas");
-      var loadingBar = document.querySelector("#unity-loading-bar");
-      var progressBarFull = document.querySelector("#unity-progress-bar-full");
-      var warningBanner = document.querySelector("#unity-warning");
 
+      // Shows a temporary message banner/ribbon for a few seconds, or
+      // a permanent error message on top of the canvas if type=='error'.
+      // If type=='warning', a yellow highlight color is used.
+      // Modify or remove this function to customize the visually presented
+      // way that non-critical warnings and error messages are presented to the
+      // user.
       function unityShowBanner(msg, type) {
+        var warningBanner = document.querySelector("#unity-warning");
         function updateBannerVisibility() {
           warningBanner.style.display = warningBanner.children.length ? 'block' : 'none';
         }
         var div = document.createElement('div');
         div.innerHTML = msg;
         warningBanner.appendChild(div);
-        if (type == 'error') div.style = 'background: red; padding: 10px; color: white;';
+        if (type == 'error') div.style = 'background: red; padding: 10px;';
         else {
           if (type == 'warning') div.style = 'background: yellow; padding: 10px;';
           setTimeout(function() {
@@ -61,47 +55,79 @@
       var loaderUrl = buildUrl + "/MemoryAPP_WEBGL_Build.loader.js";
       var config = {
         arguments: [],
-        dataUrl: buildUrl + "/MemoryAPP_WEBGL_Build.data",
-        frameworkUrl: buildUrl + "/MemoryAPP_WEBGL_Build.framework.js",
-        codeUrl: buildUrl + "/MemoryAPP_WEBGL_Build.wasm",
+        dataUrl: buildUrl + "/MemoryAPP_WEBGL_Build.data.unityweb",
+        frameworkUrl: buildUrl + "/MemoryAPP_WEBGL_Build.framework.js.unityweb",
+        codeUrl: buildUrl + "/MemoryAPP_WEBGL_Build.wasm.unityweb",
         streamingAssetsUrl: "StreamingAssets",
         companyName: "SergioJavanny",
         productName: "Memory",
         productVersion: "0.1.0",
         showBanner: unityShowBanner,
+        // errorHandler: function(err, url, line) {
+        //    alert("error " + err + " occurred at line " + line);
+        //    // Return 'true' if you handled this error and don't want Unity
+        //    // to process it further, 'false' otherwise.
+        //    return true;
+        // },
       };
 
-      // 4. НАСТРОЙКА ДЛЯ МОБИЛЬНЫХ (ТЕЛЕГРАМ)
+      // By default, Unity keeps WebGL canvas render target size matched with
+      // the DOM size of the canvas element (scaled by window.devicePixelRatio)
+      // Set this to false if you want to decouple this synchronization from
+      // happening inside the engine, and you would instead like to size up
+      // the canvas DOM size and WebGL render target sizes yourself.
+      // config.matchWebGLToCanvasSize = false;
+
+      // If you would like all file writes inside Unity Application.persistentDataPath
+      // directory to automatically persist so that the contents are remembered when
+      // the user revisits the site the next time, uncomment the following line:
+      // config.autoSyncPersistentDataPath = true;
+      // This autosyncing is currently not the default behavior to avoid regressing
+      // existing user projects that might rely on the earlier manual
+      // JS_FileSystem_Sync() behavior, but in future Unity version, this will be
+      // expected to change.
+
       if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
+        // Mobile device style: fill the whole browser client area with the game canvas:
+
         var meta = document.createElement('meta');
         meta.name = 'viewport';
         meta.content = 'width=device-width, height=device-height, initial-scale=1.0, user-scalable=no, shrink-to-fit=yes';
         document.getElementsByTagName('head')[0].appendChild(meta);
-        
-        container.className = "unity-mobile";
+        document.querySelector("#unity-container").className = "unity-mobile";
         canvas.className = "unity-mobile";
-        
-        canvas.style.width = "100%";
-        canvas.style.height = "100%";
+
+        // To lower canvas resolution on mobile devices to gain some
+        // performance, uncomment the following line:
+        // config.devicePixelRatio = 1;
+
+
       } else {
+        // Desktop style: Render the game canvas in a window that can be maximized to fullscreen:
         canvas.style.width = "1080px";
         canvas.style.height = "1920px";
       }
 
-      loadingBar.style.display = "block";
+      document.querySelector("#unity-loading-bar").style.display = "block";
 
       var script = document.createElement("script");
       script.src = loaderUrl;
       script.onload = () => {
         createUnityInstance(canvas, config, (progress) => {
-          progressBarFull.style.width = 100 * progress + "%";
-        }).then((unityInstance) => {
-          loadingBar.style.display = "none";
-        }).catch((message) => {
-          console.error(message);
-        });
-      };
+          document.querySelector("#unity-progress-bar-full").style.width = 100 * progress + "%";
+              }).then((unityInstance) => {
+                document.querySelector("#unity-loading-bar").style.display = "none";
+                document.querySelector("#unity-fullscreen-button").onclick = () => {
+                  unityInstance.SetFullscreen(1);
+                };
+
+              }).catch((message) => {
+                alert(message);
+              });
+            };
+
       document.body.appendChild(script);
+
     </script>
   </body>
 </html>
