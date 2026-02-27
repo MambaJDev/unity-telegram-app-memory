@@ -24,6 +24,19 @@
         document.body.style.textAlign = "left";
 
       }
+// Запрещаем изменение ориентации через Telegram SDK
+if (window.Telegram && window.Telegram.WebApp) {
+    window.Telegram.WebApp.lockOrientation(); // Блокирует текущую ориентацию
+}
+
+// Дополнительный фикс для CSS (чтобы контент не уезжал)
+window.addEventListener("orientationchange", function() {
+    if (window.orientation !== 0) { // Если не портрет
+        // Можно выводить плашку "Поверните телефон обратно"
+        console.log("Пожалуйста, используйте портретный режим");
+    }
+}, false);
+
 
       createUnityInstance(document.querySelector("#unity-canvas"), {
         arguments: [],
