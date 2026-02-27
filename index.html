@@ -3,42 +3,71 @@
   <head>
     <meta charset="utf-8">
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, shrink-to-fit=yes">
     <title>Unity Web Player | Memory</title>
+
+    <!-- ПОДКЛЮЧАЕМ TELEGRAM SDK -->
+    <script src="https://telegram.org"></script>
+
+    <style>
+      /* Общие стили */
+      body { background: #000; color: #fff; margin: 0; padding: 0; overflow: hidden; font-family: sans-serif; }
+      #unity-canvas { background: #000; width: 100%; height: 100%; position: fixed; }
+
+      /* Индикатор загрузки */
+      #loading-info {
+        position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+        text-align: center; width: 100%; z-index: 10;
+      }
+      .spinner {
+        width: 40px; height: 40px; border: 4px solid #333; border-top: 4px solid #3498db;
+        border-radius: 50%; animation: spin 1s linear infinite; margin: 10px auto;
+      }
+      @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+      /* ЗАЩИТА ОТ ПОВОРОТА ЭКРАНА (CSS-ЗАГЛУШКА) */
+      @media screen and (orientation: landscape) {
+        body::before {
+          content: "🔄 Пожалуйста, верните телефон в вертикальное положение";
+          position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+          background: #000; color: white; z-index: 9999;
+          display: flex; align-items: center; justify-content: center;
+          text-align: center; padding: 20px; box-sizing: border-box; font-size: 20px;
+        }
+        #unity-canvas { display: none !important; }
+      }
+    </style>
   </head>
-  <body style="text-align: center; padding: 0; border: 0; margin: 0;">
-    <canvas id="unity-canvas" width=1080 height=1920 tabindex="-1" style="width: 1080px; height: 1920px; background: #000000"></canvas>
+  <body>
+    <!-- Индикатор загрузки -->
+    <div id="loading-info">
+      <div class="spinner"></div>
+      <div id="loading-text">Загрузка: 0%</div>
+    </div>
+
+    <canvas id="unity-canvas" tabindex="-1"></canvas>
+
     <script src="Build/MemoryAPP_WEBGL_Build.loader.js"></script>
     <script>
-      if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
-        // Mobile device style: fill the whole browser client area with the game canvas:
-        var meta = document.createElement('meta');
-        meta.name = 'viewport';
-        meta.content = 'width=device-width, height=device-height, initial-scale=1.0, user-scalable=no, shrink-to-fit=yes';
-        document.getElementsByTagName('head')[0].appendChild(meta);
-
-        var canvas = document.querySelector("#unity-canvas");
-        canvas.style.width = "100%";
-        canvas.style.height = "100%";
-        canvas.style.position = "fixed";
-
-        document.body.style.textAlign = "left";
-
+      // 1. ИНИЦИАЛИЗАЦИЯ TELEGRAM
+      if (window.Telegram && window.Telegram.WebApp) {
+          const twa = window.Telegram.WebApp;
+          twa.ready();
+          twa.expand(); // Разворачиваем на весь экран
+          
+          // Пробуем заблокировать ориентацию программно (SDK 7.0+)
+          if (twa.lockOrientation) {
+              try { twa.lockOrientation(); } catch(e) { console.log("Orientation lock error"); }
+          }
       }
-// Запрещаем изменение ориентации через Telegram SDK
-if (window.Telegram && window.Telegram.WebApp) {
-    window.Telegram.WebApp.lockOrientation(); // Блокирует текущую ориентацию
-}
 
-// Дополнительный фикс для CSS (чтобы контент не уезжал)
-window.addEventListener("orientationchange", function() {
-    if (window.orientation !== 0) { // Если не портрет
-        // Можно выводить плашку "Поверните телефон обратно"
-        console.log("Пожалуйста, используйте портретный режим");
-    }
-}, false);
+      var canvas = document.querySelector("#unity-canvas");
+      var loadingInfo = document.querySelector("#loading-info");
+      var loadingText = document.querySelector("#loading-text");
 
-
-      createUnityInstance(document.querySelector("#unity-canvas"), {
+      // 2. ЗАПУСК UNITY
+      // ВНИМАНИЕ: Если файлы на GitHub называются без .unityweb, удали это расширение ниже!
+      createUnityInstance(canvas, {
         arguments: [],
         dataUrl: "Build/MemoryAPP_WEBGL_Build.data.unityweb",
         frameworkUrl: "Build/MemoryAPP_WEBGL_Build.framework.js.unityweb",
@@ -47,11 +76,14 @@ window.addEventListener("orientationchange", function() {
         companyName: "SergioJavanny",
         productName: "Memory",
         productVersion: "0.1.0",
-        // matchWebGLToCanvasSize: false, // Uncomment this to separately control WebGL canvas render size and DOM element size.
-        // devicePixelRatio: 1, // Uncomment this to override low DPI rendering on high DPI displays.
+      }, (progress) => {
+          // Обновляем проценты загрузки
+          loadingText.innerHTML = "Загрузка: " + Math.round(100 * progress) + "%";
       }).then((unityInstance) => {
+          // Скрываем загрузчик, когда игра готова
+          loadingInfo.style.display = "none";
       }).catch((message) => {
-        alert(message);
+          alert("Ошибка загрузки: " + message);
       });
     </script>
   </body>
